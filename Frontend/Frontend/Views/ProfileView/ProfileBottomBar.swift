@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct ProfileTabView: View {
+struct ProfileBottomBar: View {
     @State var user: User
     @State var newConversationId: String?
     @State var navigateToChat = false
@@ -16,6 +16,8 @@ struct ProfileTabView: View {
     @EnvironmentObject var conversationsManager: ConversationsManager
     
     var body: some View {
+        if let clientId = UserDefaults.standard.string(forKey: "_id"), clientId != user._id {
+            
             HStack {
                 Spacer()
                 NavigationLink(destination: EmptyView()) {
@@ -36,7 +38,7 @@ struct ProfileTabView: View {
                     }
                 }
                 Spacer()
-                if let clientId = UserDefaults.standard.string(forKey: "_id"), let index = conversationsManager.conversations.firstIndex(where: {$0.participants.contains(clientId) && $0.participants.contains(user._id) && $0.participants.count <= 2}) {
+                if let index = conversationsManager.conversations.firstIndex(where: {$0.participants.contains(clientId) && $0.participants.contains(user._id) && $0.participants.count <= 2}) {
                     NavigationLink(destination: ChatView(conversationId: conversationsManager.conversations[index]._id)) {
                         VStack (spacing: 10) {
                             Image(systemName: "message.fill")
@@ -76,16 +78,17 @@ struct ProfileTabView: View {
             .background(.ultraThinMaterial)
             .frame(maxHeight: .infinity, alignment: .bottom)
             .navigationDestination(isPresented: $navigateToChat) {
-                 if let conversationId = newConversationId {
-                     ChatView(conversationId: conversationId)
-                 }
-             }
+                if let conversationId = newConversationId {
+                    ChatView(conversationId: conversationId)
+                }
+            }
         }
+    }
 }
 
 struct ProfileTabView_Previews: PreviewProvider {
     static var previews: some View {
-        ProfileTabView(user: User(
+        ProfileBottomBar(user: User(
             _id: "1",
             username: "Luke",
             email: "example@example.com",

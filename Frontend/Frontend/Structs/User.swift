@@ -23,6 +23,10 @@ struct User: Codable{
     var bio: String?
     var createdAt: String?
     var lastOnline: String?
+    var sex: String?
+    var idealLanguagePartner: String?
+    var hobbies: [String]?
+    var languageGoals: String?
     
     struct Language: Codable {
         var language: String

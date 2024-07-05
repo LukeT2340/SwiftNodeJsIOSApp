@@ -95,18 +95,32 @@ router.post("/unlike", async (req, res) => {
 router.get('/fetch', async (req, res) => {
     const page = parseInt(req.query.page)
     var limit = parseInt(req.query.limit)
+    let userProfileId = req.query.userId
     if (limit > 10) {
         limit = 10
     }
     const clientUserId = req.userId
-    try {
-        // Fetch page of notes
-        const notes = await Note.aggregate()
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .sort({ createdAt: -1 })
-            .exec()
 
+    try {
+        // Build the aggregation pipeline
+        const pipeline = []
+
+        // Add a $match stage if userId is provided
+        if (userProfileId && userProfileId !== "") {
+            pipeline.push(
+                { $match: { author: userProfileId } }
+            )
+        }
+
+        // Add sorting, skipping, and limiting stages
+        pipeline.push(
+            { $sort: { createdAt: -1 } },
+            { $skip: (page - 1) * limit },
+            { $limit: limit }
+        )
+     
+        // Fetch page of notes using the pipeline
+        const notes = await Note.aggregate(pipeline).exec()
 
         // Send author object of each note back to client
         var notesAndUsers = []
@@ -140,6 +154,7 @@ router.get('/fetch', async (req, res) => {
                 notesAndUsers.push({ note: notePackage, author: user, commentsAndAuthors })
             }
         }
+        console.log(notesAndUsers.length)
         return res.status(200).json(notesAndUsers)
     } catch (error) {
         console.log(error)

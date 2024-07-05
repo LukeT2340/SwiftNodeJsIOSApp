@@ -16,7 +16,7 @@ struct NoteDetailedView: View {
     var body: some View {
         ScrollView {
             ScrollViewReader { proxy in
-                VStack {
+                VStack (alignment: .leading, spacing: 15) {
                     UserPreview(user: notePackage.author)
                     Text(notePackage.note.textContent ?? "")
                         .frame(maxWidth: .infinity, alignment: .leading)

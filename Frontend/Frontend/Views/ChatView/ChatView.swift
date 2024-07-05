@@ -89,32 +89,27 @@ struct ChatView: View {
     }
     
     private var messagesView: some View {
-        let messages = Array(messagesManager.messages.filter { $0.conversationId == conversationId }.reversed())
-        let clientUser = authManager.user
-        let clientUserId = clientUser?._id
-        let currentConversation = conversationsManager.conversations.first(where: { $0._id == conversationId })
-        
+        let messages = Array(messagesManager.messages.filter { $0.conversationId == conversationId }.reversed())        
         return  ScrollView {
             ScrollViewReader { proxy in
                 Spacer().frame(height: 5)
                 ForEach(Array(messages.enumerated()), id: \.element._id) { index, message in
                     let previousMessage = (index < messages.count - 1) ? messages[index + 1] : nil
                     let showTimestamp = shouldShowTimestamp(currentMessage: message, previousMessage: previousMessage)
-                    let user = message.sender == clientUserId ? clientUser : contactManager.users.first(where: {$0._id == message.sender})
+                    let user = contactManager.users.first(where: {$0._id == message.sender})
                     MessageView(voicePlayer: voicePlayer, message: message, user: user, showTimestamp: showTimestamp)
                         .rotationEffect(.degrees(180))
                         .scaleEffect(x: -1, y: 1, anchor: .center)
                     
                 }
-                let messageCount = messages.count
-                if messageCount % 30 != 0 || messageCount == 0 {
-                    Text(LocalizedStringKey("This is the beginning of the chat history"))
-                        .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.vertical)
-                        .rotationEffect(.degrees(180))
-                        .scaleEffect(x: -1, y: 1, anchor: .center)
-                }
+                
+                Text(LocalizedStringKey("This is the beginning of the chat history"))
+                    .foregroundColor(.gray)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical)
+                    .rotationEffect(.degrees(180))
+                    .scaleEffect(x: -1, y: 1, anchor: .center)
+                
             }
             .background(GeometryReader { geometry in
                   Color.clear

@@ -9,67 +9,58 @@ import SwiftUI
 import Kingfisher
 
 struct ProfileView: View {
+    @StateObject var profileInfoManager = ProfileInfoManager()
+
     @State var user: User
     
     var body: some View {
         ZStack {
             ScrollView {
+                top
+                ProfileSlidingTabView(user: user)
+                    .environmentObject(profileInfoManager)
+            }
+            ProfileBottomBar(user: user)
+        }
+        .navigationTitle(LocalizedStringKey("Profile"))
+        .navigationBarItems(trailing:
+                                Button(action: {}) {
+            Image(systemName: "ellipsis")
+        }
+        )
+    }
+    
+    private var top: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack (alignment: .center) {
                 VStack(alignment: .leading, spacing: 20) {
                     if let profilePictureUrl = user.profilePictureUrl, let url = URL(string: profilePictureUrl) {
                         KFImage(url)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 100, height: 100)
-                            .clipShape(Circle())
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
                             .shadow(radius: 10)
-                            .padding(.top, 20)
                     }
                     
-                    Text(user.username ?? "Unknown User")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .padding(.bottom, 5)
-                    
-                    Text(user.bio ?? "No bio available")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .padding(.bottom, 20)
-                    
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(LocalizedStringKey("Target Languages"))
-                            .font(.headline)
-                        
-                        ForEach(user.targetLanguages ?? [], id: \.language) { lang in
-                            HStack {
-                                Text(lang.language)
-                                Spacer()
-                                Text("Proficiency: \(lang.proficiency)")
-                            }
-                        }
-                    }
-                    .padding(.bottom, 20)
-                    
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(LocalizedStringKey("Native Languages"))
-                            .font(.headline)
-                        
-                        ForEach(user.nativeLanguages ?? [], id: \.self) { lang in
-                            Text(lang)
-                        }
-                    }
-                    
-                    Spacer()
                 }
-                .padding()
-                .navigationTitle(LocalizedStringKey("Profile"))
-                .navigationBarItems(trailing:
-                                        Button(action: {}) {
-                    Image(systemName: "ellipsis")
-                }
-                )
+                LanguagesDisplay(nativeLanguages: user.nativeLanguages ?? [], targetLanguages: user.targetLanguages ?? [])
+                Spacer()
             }
-            ProfileTabView(user: user)
+            Text(user.username ?? "Unknown User")
+                .font(.title2)
+                .fontWeight(.bold)
+                .padding(.bottom, 5)
+            
+            Text(user.bio ?? "No bio available")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .padding(.bottom, 20)
+            
+            Spacer()
         }
+        .padding()
     }
 }
 
@@ -83,7 +74,10 @@ struct ProfileView_Previews: PreviewProvider {
             targetLanguages: [User.Language(language: "Mandarin", proficiency: 4)],
             nativeLanguages: ["English"],
             bio: "This is a sample bio.",
-            createdAt: "2024-06-23T11:11:55.001Z"
+            createdAt: "2024-06-23T11:11:55.001Z",
+            idealLanguagePartner: "Someone who is patient and actually interested in learning",
+            hobbies: ["Running", "Reading", "Sleeping"],
+            languageGoals: "Good good study, day day up up. Get to a native speaker level."
         ))
             .previewLayout(.sizeThatFits)
             .frame(maxWidth: .infinity)

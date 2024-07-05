@@ -59,8 +59,6 @@ class MessagesManager: ObservableObject {
         }
     }
     
-    
-    
     private func createTable() throws {
            let messagesTable = Table("messages")
            let _id = Expression<String>("_id")
@@ -111,7 +109,9 @@ class MessagesManager: ObservableObject {
              self.messagesPage[conversationId] = 1
              cachedMessages.append(contentsOf: self.loadMessagesFromStorage(batchSize: 30, conversationId: conversationId))
          }
-         self.messages = cachedMessages
+        DispatchQueue.main.async {
+            self.messages = cachedMessages
+        }
      }
     
     private func retrieveConversationIds() -> [String] {

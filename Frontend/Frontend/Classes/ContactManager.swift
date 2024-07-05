@@ -32,6 +32,7 @@ class ContactManager: ObservableObject {
     let targetLanguages = Expression<String?>("targetLanguages")
     let nativeLanguages = Expression<String?>("nativeLanguages")
     let country = Expression<String?>("country")
+    let sex = Expression<String?>("sex")
     let bio = Expression<String?>("bio")
     let createdAt = Expression<String?>("createdAt")
     let lastOnline = Expression<String?>("lastOnline")
@@ -57,10 +58,9 @@ class ContactManager: ObservableObject {
                 self.startTimer()
                 self.updateLastOnline()
                 self.isFetching = false
-                self.hasInitialized = true
             }
         }
-        
+        self.hasInitialized = true
         NotificationCenter.default.addObserver(self, selector: #selector(appMovedToForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appMovedToForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
     }
@@ -76,6 +76,7 @@ class ContactManager: ObservableObject {
                table.column(profilePictureUrl)
                table.column(targetLanguages)
                table.column(nativeLanguages)
+               table.column(sex)
                table.column(country)
                table.column(bio)
                table.column(lastOnline)
@@ -238,7 +239,8 @@ class ContactManager: ObservableObject {
                     country: row[country],
                     bio: row[bio],
                     createdAt: row[createdAt],
-                    lastOnline: row[lastOnline]
+                    lastOnline: row[lastOnline],
+                    sex: row[sex]
                 )
                 
                 users.append(user)
@@ -269,6 +271,7 @@ class ContactManager: ObservableObject {
                 nativeLanguages <- nativeLanguagesJsonString,
                 country <- user.country,
                 bio <- user.bio,
+                sex <- user.sex,
                 createdAt <- user.createdAt,
                 lastOnline <- user.lastOnline
             )

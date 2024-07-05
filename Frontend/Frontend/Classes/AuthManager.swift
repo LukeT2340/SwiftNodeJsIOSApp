@@ -16,18 +16,23 @@ class AuthManager: ObservableObject {
     @Published var user: User?
     @Published var errorMessage: String?
     @Published var isFetching = false
-
+    @Published var isInitialized = false
+    
     init() {
+        initialize()
+    }
+
+    func initialize() {
         self.isSignedIn = UserDefaults.standard.bool(forKey: "isSignedIn")
         self.accountIsSetup = UserDefaults.standard.bool(forKey: "accountIsSetup")
         self.user = self.loadClientUserFromStorage()
         self.isFetching = true
         self.fetchUser() {
             self.isFetching = false
-
+            self.isInitialized = true
         }
     }
-
+    
     func login(email: String, password: String) {
         guard let backendURL = UserDefaults.standard.string(forKey: "backend_url") else {
             print("Backend URL not set")

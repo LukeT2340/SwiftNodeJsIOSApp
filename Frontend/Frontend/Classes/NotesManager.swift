@@ -535,7 +535,9 @@ class NotesManager: ObservableObject {
         self.fetchComments(page: page, batchSize: batchSize, noteId: noteId) {commentsAndAuthors, reachedEnd in
             if let index = self.recommendedNotes.firstIndex(where: {$0.note._id == noteId}), let commentsAndAuthors = commentsAndAuthors {
                 DispatchQueue.main.async {
-                    self.recommendedNotes[index].commentsAndAuthors.append(contentsOf: commentsAndAuthors)
+                    let existingCommentIds = self.recommendedNotes[index].commentsAndAuthors.map{$0.comment._id}
+                    let filteredNewComments = commentsAndAuthors.filter{!existingCommentIds.contains($0.comment._id)}
+                    self.recommendedNotes[index].commentsAndAuthors.append(contentsOf: filteredNewComments)
                     self.isFetching = false
                     completion(reachedEnd)
                 }

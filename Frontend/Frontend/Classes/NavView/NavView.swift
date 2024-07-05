@@ -41,15 +41,19 @@ struct NavView: View {
                     .tag(3)
             }
         }
+        
         .onAppear {
-            if !messagesManager.hasInitialized {
-                messagesManager.initialize()
-            }
             if !contactManager.hasInitialized {
                 contactManager.initialize()
             }
             if !conversationsManager.hasInitialized {
                 conversationsManager.initialize()
+            }
+            if !messagesManager.hasInitialized {
+                messagesManager.initialize()
+            }
+            if !authManager.isInitialized {
+                authManager.initialize()
             }
         }
         .onChange(of: contactManager.users) { _ in

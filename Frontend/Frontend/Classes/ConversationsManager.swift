@@ -32,8 +32,9 @@ class ConversationsManager: ObservableObject {
         DispatchQueue.main.async {
             self.conversations = self.loadConversationsFromStorage()
             self.refreshConversations { [weak self] in
-                self?.hasInitialized = true
+
             }
+            self.hasInitialized = true
         }
     }
     

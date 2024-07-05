@@ -55,7 +55,6 @@ struct UserPreview: View {
                     }
                     
                 }
-                Spacer()
             }
         }
     }

@@ -15,14 +15,13 @@ struct NotePreview: View {
     
     var body: some View {
         NavigationLink(destination: NoteDetailedView(notePackage: notePackage)) {
-            VStack {
+            VStack (alignment: .leading, spacing: 15) {
                 UserPreview(user: notePackage.author)
                 Text(notePackage.note.textContent ?? "")
                     .frame(maxWidth: .infinity, alignment: .leading)
                 mediaPreview
                 feedBack
                 comments
-                //NewCommentView(notePackage: notePackage, showTextField: showTextField)
             }
             .padding()
             .background(Color.white)

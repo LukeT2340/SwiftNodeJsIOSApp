@@ -21,7 +21,7 @@ struct MessageView: View {
     @Environment(\.colorScheme) private var colorScheme
     var body: some View {
         VStack {
-            if let clientUserId = authManager.user?._id {
+            if let clientUserId = UserDefaults.standard.string(forKey: "_id") {
                 if let timestamp = message.createdAt, showTimestamp {
                     Text(formatDate(timestamp))
                         .font(.footnote)
