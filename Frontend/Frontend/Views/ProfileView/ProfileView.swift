@@ -9,16 +9,36 @@ import SwiftUI
 import Kingfisher
 
 struct ProfileView: View {
-    @StateObject var profileInfoManager = ProfileInfoManager()
+    @EnvironmentObject var profileInfoManager: ProfileInfoManager
+    @EnvironmentObject var notesManager: NotesManager
 
+    @State var page = 2
     @State var user: User
+    @State private var height = CGFloat(0)
+    @State private var fetchingMoreNotes = false
     
     var body: some View {
         ZStack {
             ScrollView {
-                top
-                ProfileSlidingTabView(user: user)
-                    .environmentObject(profileInfoManager)
+                ScrollViewReader { proxy in
+                    top
+                    ProfileSlidingTabView(user: user)
+                        .environmentObject(profileInfoManager)
+                }
+                .background(GeometryReader { geometry in
+                    Color.clear
+                        .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).origin)
+                        .onChange(of: geometry.size) { value in
+                            DispatchQueue.main.async {
+                                height = value.height
+                            }
+                        }
+                })
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    if value.y + height < 900 && !fetchingMoreNotes && profileInfoManager.notesInitialized {
+                       loadMoreNotes()
+                    }
+                }
             }
             ProfileBottomBar(user: user)
         }
@@ -28,6 +48,9 @@ struct ProfileView: View {
             Image(systemName: "ellipsis")
         }
         )
+        .onAppear {
+            profileInfoManager.emptyVariables()
+        }
     }
     
     private var top: some View {
@@ -57,10 +80,27 @@ struct ProfileView: View {
                 .font(.body)
                 .foregroundColor(.secondary)
                 .padding(.bottom, 20)
-            
             Spacer()
         }
         .padding()
+    }
+    
+    private func loadMoreNotes() {
+        fetchingMoreNotes = true
+        notesManager.fetchNotes(page: page, batchSize: 5,userId: user._id) { notePackages, reachedEnd in
+            if reachedEnd {
+                page = -1
+            } else {
+                page += 1
+            }
+            if let notePackages = notePackages {
+                profileInfoManager.addNewNotes(notePackages: notePackages) {
+                    DispatchQueue.main.async {
+                        fetchingMoreNotes = false
+                    }
+                }
+            }
+        }
     }
 }
 

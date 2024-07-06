@@ -11,59 +11,67 @@ import Alamofire
 class ProfileInfoManager: ObservableObject {
     @Published var notes: [NotePackage] = []
     @Published var notesInitialized = false
-    @Published var isFetching = false
-    @Published var page = 1
+    @Published var mediaInitialized = false
     
-    func fetchInitialBatchOfNotes(userId: String, completion: @escaping () -> Void) {
-        self.page = 1
-        self.fetchNotes(batchSize: 10, userId: userId) { notePackages in
-            if let notePackages {
-                print(notePackages)
-                self.notes = notePackages
+    func addNewNotes(notePackages: [NotePackage], completion: @escaping () -> Void) {
+        DispatchQueue.main.async {
+            let existingNoteIds = self.notes.map{$0.note._id}
+            let filteredNotePackages = notePackages.filter({!existingNoteIds.contains($0.note._id)})
+            self.notes.append(contentsOf: filteredNotePackages)
+            completion()
+        }
+    }
+    
+    func updateNote(_ note: Note) {
+        DispatchQueue.main.async {
+            if let index = self.notes.firstIndex(where: {$0.note._id == note._id}) {
+                let user = self.notes[index].author
+                let commentsAndAuthors = self.notes[index].commentsAndAuthors
+                self.notes[index] = NotePackage(note: note, author: user, commentsAndAuthors: commentsAndAuthors)
             }
         }
     }
     
-    private func fetchNotes(batchSize: Int, userId: String, completion: @escaping ([NotePackage]?) -> Void) {
-        guard !self.isFetching else {
-            completion(nil)
-            return
+    func addCommentToArray(_ commentAndAuthor: CommentAndAuthor) {
+        DispatchQueue.main.async {
+            if let index = self.notes.firstIndex(where: { $0.note._id == commentAndAuthor.comment.noteId }) {
+                self.notes[index].note.commentCount += 1
+                self.notes[index].commentsAndAuthors.append(commentAndAuthor)
+            }
         }
-        self.isFetching = true
-        guard let backendURL = UserDefaults.standard.string(forKey: "backend_url") else {
-            print("Backend URL not set")
-            self.isFetching = false
-            completion(nil)
-            return
+    }
+    
+    func addCommentsToArray(_ commentsAndAuthors: [CommentAndAuthor]) {
+        DispatchQueue.main.async {
+            let existingCommentIds = self.notes.flatMap { $0.commentsAndAuthors.map { $0.comment._id } }
+            let filteredCommentsAndAuthors = commentsAndAuthors.filter{!existingCommentIds.contains($0.comment._id)}
+
+            for commentAndAuthor in filteredCommentsAndAuthors {
+                if let noteIndex = self.notes.firstIndex(where: { $0.note._id == commentAndAuthor.comment.noteId }) {
+                    self.notes[noteIndex].commentsAndAuthors.append(commentAndAuthor)
+                 }
+             }
         }
-        
-        guard let token = UserDefaults.standard.string(forKey: "authToken") else {
-            print("Auth token not set")
-            self.isFetching = false
-            completion(nil)
-            return
-        }
-        
-        let headers: HTTPHeaders = [
-            "Authorization": "Bearer \(token)"
-        ]
-        
-        let url = "\(backendURL)/note/fetch/?page=\(page)&limit=\(batchSize)&userId=\(userId)"
-        AF.request(url, method: .get, headers: headers)
-            .validate()
-            .responseDecodable(of: [NotePackage].self) { response in
-                DispatchQueue.main.async {
-                    switch response.result {
-                    case .success(let newNotesAndUsers):
-                        self.page += 1
-                        self.isFetching = false
-                        completion(newNotesAndUsers)
-                    case .failure(let error):
-                        print("Failed to fetch new notes: \(error.localizedDescription)")
-                        self.isFetching = false
-                        completion(nil)
-                    }
+    }
+    
+    func updateComment(_ comment: Comment) {
+        DispatchQueue.main.async {
+            if let index = self.notes.firstIndex(where: {$0.note._id == comment.noteId}) {
+                var commentsAndAuthors = self.notes[index].commentsAndAuthors
+                if let index2 = commentsAndAuthors.firstIndex(where: {$0.comment._id == comment._id}) {
+                    commentsAndAuthors[index2].comment = comment
+                    self.notes[index].commentsAndAuthors = commentsAndAuthors
                 }
+                
             }
+        }
     }
+    
+    func emptyVariables() {
+        self.notes = []
+        self.mediaInitialized = false
+        self.notesInitialized = false
+    }
+    
+    
 }

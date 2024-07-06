@@ -15,7 +15,9 @@ struct FrontendApp: App {
     @StateObject var authManager = AuthManager()
     @StateObject var contactManager = ContactManager()
     @StateObject var notesManager = NotesManager()
-
+    @StateObject var profileInfoManager = ProfileInfoManager()
+    @StateObject var notificationViewModel = NotificationViewModel()
+    
     init () {
         UserDefaults.standard.set("http://192.168.1.145:3001", forKey: "backend_url")
     }
@@ -28,6 +30,8 @@ struct FrontendApp: App {
                 .environmentObject(contactManager)
                 .environmentObject(conversationsManager)
                 .environmentObject(notesManager)
+                .environmentObject(profileInfoManager)
+                .environmentObject(notificationViewModel)
         }
     }
 

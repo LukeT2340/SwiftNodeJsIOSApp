@@ -10,11 +10,13 @@ import Kingfisher
 
 struct NotePreview: View {
     @EnvironmentObject var notesManager: NotesManager
+    @EnvironmentObject var profileInfoManager: ProfileInfoManager
     @State var showTextField = false
     var notePackage: NotePackage
+    var isViewingFromProfileView: Bool
     
     var body: some View {
-        NavigationLink(destination: NoteDetailedView(notePackage: notePackage)) {
+        NavigationLink(destination: NoteDetailedView(notePackage: notePackage, isViewingFromProfileView: isViewingFromProfileView)) {
             VStack (alignment: .leading, spacing: 15) {
                 UserPreview(user: notePackage.author)
                 Text(notePackage.note.textContent ?? "")
@@ -51,12 +53,24 @@ struct NotePreview: View {
             Button(action: {
                 if let hasLiked = notePackage.note.hasLiked {
                     if hasLiked {
-                        notesManager.unlikeNote(noteId: notePackage.note._id) {
-                            
+                        notesManager.unlikeNote(noteId: notePackage.note._id) { note in
+                            if let note = note {
+                                if isViewingFromProfileView {
+                                    profileInfoManager.updateNote(note)
+                                } else {
+                                    notesManager.updateNote(note)
+                                }
+                            }
                         }
                     } else {
-                        notesManager.likeNote(noteId: notePackage.note._id) {
-                            
+                        notesManager.likeNote(noteId: notePackage.note._id) { note in
+                            if let note = note {
+                                if isViewingFromProfileView {
+                                    profileInfoManager.updateNote(note)
+                                } else {
+                                    notesManager.updateNote(note)
+                                }
+                            }
                         }
                     }
                 }
@@ -92,12 +106,13 @@ struct NotePreview: View {
             VStack {
                 let commentsAndAuthors = Array(notePackage.commentsAndAuthors.prefix(3))
                 ForEach(commentsAndAuthors, id: \.self.comment._id) { commentAndAuthor in
-                    CommentView(commentAndAuthor: commentAndAuthor)
+                    CommentView(commentAndAuthor: commentAndAuthor, isViewingFromProfileView: isViewingFromProfileView)
                 }
                 if notePackage.commentsAndAuthors.count > 3 {
-                    NavigationLink(destination: NoteDetailedView(notePackage: notePackage)) {
+                    NavigationLink(destination: NoteDetailedView(notePackage: notePackage, isViewingFromProfileView: isViewingFromProfileView)) {
                         Text(LocalizedStringKey("View all \(notePackage.note.commentCount) comments"))
                             .foregroundStyle(Color.accentColor)
+                            .padding(.top, 10)
                     }
                 }
             }
@@ -111,6 +126,6 @@ struct NotePreview_Previews: PreviewProvider {
         let user = User(_id: "", username: "Luke", profilePictureUrl: "https://firebasestorage.googleapis.com/v0/b/mylanguageapp-b7504.appspot.com/o/compressedProfileImages%2Fvh6oZg0lBtSveV9kR7GO8zHugam1.jpg?alt=media&token=b6f7844f-e928-4f96-91b2-755ee2f49be4")
         let notePackage = NotePackage(note: note, author: user, commentsAndAuthors: [])
         
-        return NotePreview(notePackage: notePackage)
+        return NotePreview(notePackage: notePackage, isViewingFromProfileView: false)
     }
 }

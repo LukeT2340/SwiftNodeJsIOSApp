@@ -9,53 +9,80 @@ import SwiftUI
 import Kingfisher
 
 struct NoteDetailedView: View {
+    @ObservedObject var keyboardResponder = KeyboardResponder()
     @EnvironmentObject var notesManager: NotesManager
+    @EnvironmentObject var profileInfoManager: ProfileInfoManager
     var notePackage: NotePackage
+    var isViewingFromProfileView: Bool
+    
+    @State private var noteLoaded = false
     @State private var height = CGFloat(0)
     @State private var page = 1
     var body: some View {
-        ScrollView {
-            ScrollViewReader { proxy in
-                VStack (alignment: .leading, spacing: 15) {
-                    UserPreview(user: notePackage.author)
-                    Text(notePackage.note.textContent ?? "")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    mediaPreview
-                    feedBack
-                    NewCommentView(notePackage: notePackage)
-                    comments
-                }
-                .padding(.horizontal)
-                Spacer()
-            }
-            .background(GeometryReader { geometry in
-                Color.clear
-                    .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).origin)
-                    .onChange(of: geometry.size) { value in
-                        if page != -1 {
-                            height = value.height
-                        }
+        ZStack {
+            ScrollView {
+                ScrollViewReader { proxy in
+                    VStack (alignment: .leading, spacing: 15) {
+                        UserPreview(user: notePackage.author)
+                        Text(notePackage.note.textContent ?? "")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        mediaPreview
+                        feedBack
+                        comments
+                        Color.clear
+                            .frame(height: 50)
+                            .id("ScrollViewEnd")
+                        Spacer()
                     }
-            })
-            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                if page != -1 && value.y + height < 900 {
-                    notesManager.fetchMoreComments(page: page, batchSize: 8, noteId: notePackage.note._id) { reachedEnd in
-                        if reachedEnd {
-                            page = -1
-                        } else {
-                            page += 1
+                    .padding(.horizontal)
+                    .onChange(of: keyboardResponder.isKeyboardVisible) { boolean in
+                        if boolean {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                withAnimation {
+                                    proxy.scrollTo("ScrollViewEnd")
+                                }
+                            }
                         }
                     }
                 }
+                .background(GeometryReader { geometry in
+                    Color.clear
+                        .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).origin)
+                        .onChange(of: geometry.size) { value in
+                            if page != -1 {
+                                height = value.height
+                            }
+                        }
+                })
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    if page != -1 && value.y + height < 900 && noteLoaded {
+                        notesManager.fetchMoreComments(page: page, batchSize: 8, noteId: notePackage.note._id) { commentsAndAuthors, reachedEnd in
+                            if reachedEnd {
+                                page = -1
+                            } else {
+                                page += 1
+                            }
+                            if isViewingFromProfileView {
+                                profileInfoManager.addCommentsToArray(commentsAndAuthors)
+                            } else {
+                                notesManager.addCommentsToArray(commentsAndAuthors)
+                            }
+                        }
+                    }
+                }
             }
-        }
-        .background(Color.white)
-        .foregroundColor(.primary)
-        .cornerRadius(10)
-        .onAppear {
-            notesManager.reloadNote(noteId: notePackage.note._id) {
-                
+            .background(Color.white)
+            .foregroundColor(.primary)
+            .cornerRadius(10)
+            .onAppear {
+                notesManager.reloadNote(noteId: notePackage.note._id) {
+                    noteLoaded = true
+                }
             }
+            .onTapGesture {
+                keyboardResponder.hideKeyboard()
+            }
+            NewCommentView(notePackage: notePackage, isViewingFromProfileView: isViewingFromProfileView)
         }
     }
     
@@ -80,12 +107,24 @@ struct NoteDetailedView: View {
             Button(action: {
                 if let hasLiked = notePackage.note.hasLiked {
                     if hasLiked {
-                        notesManager.unlikeNote(noteId: notePackage.note._id) {
-                            
+                        notesManager.unlikeNote(noteId: notePackage.note._id) { note in
+                            if let note = note {
+                                if isViewingFromProfileView {
+                                    profileInfoManager.updateNote(note)
+                                } else {
+                                    notesManager.updateNote(note)
+                                }
+                            }
                         }
                     } else {
-                        notesManager.likeNote(noteId: notePackage.note._id) {
-                            
+                        notesManager.likeNote(noteId: notePackage.note._id) { note in
+                            if let note = note {
+                                if isViewingFromProfileView {
+                                    profileInfoManager.updateNote(note)
+                                } else {
+                                    notesManager.updateNote(note)
+                                }
+                            }
                         }
                     }
                 }
@@ -113,7 +152,7 @@ struct NoteDetailedView: View {
         if notePackage.commentsAndAuthors.count > 0 {
             VStack {
                 ForEach(notePackage.commentsAndAuthors, id: \.self.comment._id) { commentAndAuthor in
-                    CommentView(commentAndAuthor: commentAndAuthor)
+                    CommentView(commentAndAuthor: commentAndAuthor, isViewingFromProfileView: isViewingFromProfileView)
                 }
             }
         }
@@ -126,6 +165,6 @@ struct NoteDetailedView_Previews: PreviewProvider {
         let user = User(_id: "", username: "Luke")
         let noteAndUser = NotePackage(note: note, author: user, commentsAndAuthors: [])
         
-        return NoteDetailedView(notePackage: noteAndUser)
+        return NoteDetailedView(notePackage: noteAndUser, isViewingFromProfileView: false)
     }
 }

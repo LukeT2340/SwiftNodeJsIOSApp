@@ -87,7 +87,7 @@ module.exports = function(io) {
 
                         const systemMessage = new Message({
                             conversationId: conversationId,
-                            text: `${user.username} joined the group chat`, // Localized String
+                            text: `${user.username} joined the group chat`, 
                             isSystemMessage: true
                         })
             

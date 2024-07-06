@@ -74,7 +74,6 @@ struct ProfileBottomBar: View {
                 Spacer()
             }
             .padding(.top)
-            .padding(.horizontal)
             .background(.ultraThinMaterial)
             .frame(maxHeight: .infinity, alignment: .bottom)
             .navigationDestination(isPresented: $navigateToChat) {

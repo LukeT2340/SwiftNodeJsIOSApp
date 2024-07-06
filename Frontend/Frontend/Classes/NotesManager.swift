@@ -14,52 +14,51 @@ import Photos
 
 class NotesManager: ObservableObject {
     @Published var recommendedNotes: [NotePackage] = []
-    @Published var page = 1
     @Published var isFetching = false
     @Published var hasInitialized = false
     
-    func initialize() {
-        fetchFirstBatchOfNotes() {
+    func initialize(page: Int) {
+        fetchMoreRecommendedNotes(page: page) { _ in
             self.hasInitialized = true
         }
     }
     
-    private func fetchFirstBatchOfNotes(completion: @escaping () -> Void) {
-        fetchRecommendedNotes(batchSize: 10) { newNotesAndUsers in
-            if let notesAndUsers = newNotesAndUsers {
-                self.recommendedNotes.append(contentsOf: notesAndUsers)
-            }
-        }
-    }
-    
-    func fetchMoreRecommendedNotes(completion: @escaping () -> Void) {
-        fetchRecommendedNotes(batchSize: 10) { newNotesAndUsers in
-            if let notesAndUsers = newNotesAndUsers {
-                let existingNoteIDs = Set(self.recommendedNotes.map { $0.note._id })
-                let filteredNotesAndUsers = notesAndUsers.filter { !existingNoteIDs.contains($0.note._id) }
-                self.recommendedNotes.append(contentsOf: filteredNotesAndUsers)
-            }
-            completion()
-        }
-    }
-    
-    private func fetchRecommendedNotes(batchSize: Int, completion: @escaping ([NotePackage]?) -> Void) {
+    func fetchMoreRecommendedNotes(page: Int, completion: @escaping (Bool) -> Void) {
         guard !self.isFetching else {
-            completion(nil)
+            completion(false)
             return
         }
-        self.isFetching = true
+        isFetching = true
+        fetchNotes(page: page, batchSize: 10, userId: nil) { newNotesAndUsers, reachedEnd in
+            DispatchQueue.main.async {
+                if let notesAndUsers = newNotesAndUsers {
+                    let existingNoteIDs = Set(self.recommendedNotes.map { $0.note._id })
+                    let filteredNotesAndUsers = notesAndUsers.filter { !existingNoteIDs.contains($0.note._id) }
+                    self.recommendedNotes.append(contentsOf: filteredNotesAndUsers)
+                    self.isFetching = false
+                }
+                completion(reachedEnd)
+            }
+        }
+    }
+    
+    func fetchNotes(page: Int, batchSize: Int, userId: String?, completion: @escaping ([NotePackage]?, Bool) -> Void) {
+        guard page != -1 else {
+            completion(nil, true)
+            return
+        }
+        
         guard let backendURL = UserDefaults.standard.string(forKey: "backend_url") else {
             print("Backend URL not set")
             self.isFetching = false
-            completion(nil)
+            completion(nil, false)
             return
         }
         
         guard let token = UserDefaults.standard.string(forKey: "authToken") else {
             print("Auth token not set")
             self.isFetching = false
-            completion(nil)
+            completion(nil, false)
             return
         }
         
@@ -67,20 +66,24 @@ class NotesManager: ObservableObject {
             "Authorization": "Bearer \(token)"
         ]
         
-        let url = "\(backendURL)/note/fetch/?page=\(page)?&limit=\(batchSize)"
+        var url = "\(backendURL)/note/fetch/?page=\(page)&limit=\(batchSize)"
+        if let userId = userId {
+            url += "&userId=\(userId)"
+        }
         AF.request(url, method: .get, headers: headers)
             .validate()
             .responseDecodable(of: [NotePackage].self) { response in
                 DispatchQueue.main.async {
                     switch response.result {
                     case .success(let newNotesAndUsers):
-                        self.page += 1
-                        self.isFetching = false
-                        completion(newNotesAndUsers)
+                        if newNotesAndUsers.count < batchSize {
+                            completion(newNotesAndUsers, true)
+                        } else {
+                            completion(newNotesAndUsers, false)
+                        }
                     case .failure(let error):
                         print("Failed to fetch new notes: \(error.localizedDescription)")
-                        self.isFetching = false
-                        completion(nil)
+                        completion(nil, false)
                     }
                 }
             }
@@ -89,11 +92,6 @@ class NotesManager: ObservableObject {
     func createNote(textContent: String, media: [TLPHAsset], completion: @escaping (Note?) -> Void) {
         guard let backendURL = UserDefaults.standard.string(forKey: "backend_url") else {
             print("Backend URL not set")
-            return
-        }
-        
-        guard let clientUserId = UserDefaults.standard.string(forKey: "_id") else {
-            print("User Id not set")
             return
         }
         
@@ -265,19 +263,21 @@ class NotesManager: ObservableObject {
         }
     }
     
-    func likeNote(noteId: String, completion: @escaping () -> Void) {
+    func likeNote(noteId: String, completion: @escaping (Note?) -> Void) {
         guard let backendURL = UserDefaults.standard.string(forKey: "backend_url") else {
-            completion()
+            completion(nil)
             return
         }
         
         guard let token = UserDefaults.standard.string(forKey: "authToken") else {
             print("Auth token not set")
+            completion(nil)
             return
         }
         
         guard noteId != "" else {
             print("No note Id")
+            completion(nil)
             return
         }
         
@@ -293,34 +293,29 @@ class NotesManager: ObservableObject {
             .responseDecodable(of: Note.self) { response in
                 switch response.result {
                 case .success(let note):
-                    DispatchQueue.main.async {
-                        if let index = self.recommendedNotes.firstIndex(where: {$0.note._id == noteId}) {
-                            let user = self.recommendedNotes[index].author
-                            let commentsAndAuthors = self.recommendedNotes[index].commentsAndAuthors
-                            self.recommendedNotes[index] = NotePackage(note: note, author: user, commentsAndAuthors: commentsAndAuthors)
-                        }
-                        completion()
-                    }
+                    completion(note)
                 case .failure(let error):
                     print("Failed to like note: \(error.localizedDescription)")
-                    completion()
+                    completion(nil)
                 }
             }
     }
     
-    func unlikeNote(noteId: String, completion: @escaping () -> Void) {
+    func unlikeNote(noteId: String, completion: @escaping (Note?) -> Void) {
         guard let backendURL = UserDefaults.standard.string(forKey: "backend_url") else {
-            completion()
+            completion(nil)
             return
         }
         
         guard let token = UserDefaults.standard.string(forKey: "authToken") else {
             print("Auth token not set")
+            completion(nil)
             return
         }
         
         guard noteId != "" else {
             print("No note Id")
+            completion(nil)
             return
         }
         
@@ -336,25 +331,18 @@ class NotesManager: ObservableObject {
             .responseDecodable(of: Note.self) { response in
                 switch response.result {
                 case .success(let note):
-                    DispatchQueue.main.async {
-                        if let index = self.recommendedNotes.firstIndex(where: {$0.note._id == noteId}) {
-                            let user = self.recommendedNotes[index].author
-                            let commentsAndAuthors = self.recommendedNotes[index].commentsAndAuthors
-                            self.recommendedNotes[index] = NotePackage(note: note, author: user, commentsAndAuthors: commentsAndAuthors)
-                        }
-                        completion()
-                    }
+                    completion(note)
                 case .failure(let error):
                     print("Failed to unlike note: \(error.localizedDescription)")
-                    completion()
+                    completion(nil)
                 }
             }
     }
     
     
-    func comment(noteId: String, textContent: String, completion: @escaping () -> Void) {
+    func comment(noteId: String, textContent: String, completion: @escaping (CommentAndAuthor?) -> Void) {
         guard let backendURL = UserDefaults.standard.string(forKey: "backend_url") else {
-            completion()
+            completion(nil)
             return
         }
         
@@ -385,33 +373,29 @@ class NotesManager: ObservableObject {
             .responseDecodable(of: CommentAndAuthor.self) { response in
                 switch response.result {
                 case .success(let commentAndAuthor):
-                    DispatchQueue.main.async {
-                        if let index = self.recommendedNotes.firstIndex(where: { $0.note._id == noteId }) {
-                            self.recommendedNotes[index].note.commentCount += 1
-                            self.recommendedNotes[index].commentsAndAuthors.append(commentAndAuthor)
-                        }
-                        completion()
-                    }
+                    completion(commentAndAuthor)
                 case .failure(let error):
                     print("Failed to comment on note: \(error.localizedDescription)")
-                    completion()
+                    completion(nil)
                 }
             }
     }
     
-    func likeCommet(commentId: String, completion: @escaping () -> Void) {
+    func likeCommet(commentId: String, completion: @escaping (Comment?) -> Void) {
         guard let backendURL = UserDefaults.standard.string(forKey: "backend_url") else {
-            completion()
+            completion(nil)
             return
         }
         
         guard let token = UserDefaults.standard.string(forKey: "authToken") else {
             print("Auth token not set")
+            completion(nil)
             return
         }
         
         guard commentId != "" else {
             print("No comment Id")
+            completion(nil)
             return
         }
         
@@ -427,37 +411,29 @@ class NotesManager: ObservableObject {
             .responseDecodable(of: Comment.self) { response in
                 switch response.result {
                 case .success(let comment):
-                    DispatchQueue.main.async {
-                        if let index = self.recommendedNotes.firstIndex(where: {$0.note._id == comment.noteId}) {
-                            var commentsAndAuthors = self.recommendedNotes[index].commentsAndAuthors
-                            if let index2 = commentsAndAuthors.firstIndex(where: {$0.comment._id == comment._id}) {
-                                commentsAndAuthors[index2].comment = comment
-                                self.recommendedNotes[index].commentsAndAuthors = commentsAndAuthors
-                            }
-                            
-                        }
-                        completion()
-                    }
+                    completion(comment)
                 case .failure(let error):
                     print("Failed to like comment: \(error.localizedDescription)")
-                    completion()
+                    completion(nil)
                 }
             }
     }
     
-    func unlikeCommet(commentId: String, completion: @escaping () -> Void) {
+    func unlikeCommet(commentId: String, completion: @escaping (Comment?) -> Void) {
         guard let backendURL = UserDefaults.standard.string(forKey: "backend_url") else {
-            completion()
+            completion(nil)
             return
         }
         
         guard let token = UserDefaults.standard.string(forKey: "authToken") else {
             print("Auth token not set")
+            completion(nil)
             return
         }
         
         guard commentId != "" else {
             print("No comment Id")
+            completion(nil)
             return
         }
         
@@ -473,20 +449,10 @@ class NotesManager: ObservableObject {
             .responseDecodable(of: Comment.self) { response in
                 switch response.result {
                 case .success(let comment):
-                    DispatchQueue.main.async {
-                        if let index = self.recommendedNotes.firstIndex(where: {$0.note._id == comment.noteId}) {
-                            var commentsAndAuthors = self.recommendedNotes[index].commentsAndAuthors
-                            if let index2 = commentsAndAuthors.firstIndex(where: {$0.comment._id == comment._id}) {
-                                commentsAndAuthors[index2].comment = comment
-                                self.recommendedNotes[index].commentsAndAuthors = commentsAndAuthors
-                            }
-                            
-                        }
-                        completion()
-                    }
+                    completion(comment)
                 case .failure(let error):
                     print("Failed to like comment: \(error.localizedDescription)")
-                    completion()
+                    completion(nil)
                 }
             }
     }
@@ -531,27 +497,23 @@ class NotesManager: ObservableObject {
             }
     }
     
-    func fetchMoreComments(page: Int, batchSize: Int, noteId: String, completion: @escaping (Bool) -> Void) {
+    func fetchMoreComments(page: Int, batchSize: Int, noteId: String, completion: @escaping ([CommentAndAuthor], Bool) -> Void) {
         self.fetchComments(page: page, batchSize: batchSize, noteId: noteId) {commentsAndAuthors, reachedEnd in
-            if let index = self.recommendedNotes.firstIndex(where: {$0.note._id == noteId}), let commentsAndAuthors = commentsAndAuthors {
-                DispatchQueue.main.async {
-                    let existingCommentIds = self.recommendedNotes[index].commentsAndAuthors.map{$0.comment._id}
-                    let filteredNewComments = commentsAndAuthors.filter{!existingCommentIds.contains($0.comment._id)}
-                    self.recommendedNotes[index].commentsAndAuthors.append(contentsOf: filteredNewComments)
-                    self.isFetching = false
-                    completion(reachedEnd)
-                }
+            if let commentsAndAuthors = commentsAndAuthors {
+                completion(commentsAndAuthors, reachedEnd)
             }
         }
     }
     
-    private func fetchComments(page: Int, batchSize: Int, noteId: String,completion: @escaping ([CommentAndAuthor]?, Bool) -> Void) {
+    private func fetchComments(page: Int, batchSize: Int, noteId: String, completion: @escaping ([CommentAndAuthor]?, Bool) -> Void) {
         guard !self.isFetching else {
             completion(nil, false)
             return
         }
-        
-        self.isFetching = true
+        guard page != -1 else {
+            completion(nil, true)
+            return
+        }
         guard let backendURL = UserDefaults.standard.string(forKey: "backend_url") else {
             print("Backend URL not set")
             self.isFetching = false
@@ -566,18 +528,20 @@ class NotesManager: ObservableObject {
             return
         }
         
+        self.isFetching = true
+        
         let headers: HTTPHeaders = [
             "Authorization": "Bearer \(token)"
         ]
-        
-        let url = "\(backendURL)/comment/fetch/?page=\(page)?&limit=\(batchSize)"
+        let url = "\(backendURL)/comment/fetch/?page=\(page)&limit=\(batchSize)&noteId=\(noteId)"
         AF.request(url, method: .get, headers: headers)
             .validate()
             .responseDecodable(of: [CommentAndAuthor].self) { response in
                 DispatchQueue.main.async {
                     switch response.result {
                         case .success(let commentsAndAuthors):
-                            if commentsAndAuthors.count % batchSize != 0 || commentsAndAuthors.count == 0 {
+                            self.isFetching = false
+                            if commentsAndAuthors.count < batchSize {
                                 completion(commentsAndAuthors, true)
                             } else {
                                 completion(commentsAndAuthors, false)
@@ -589,5 +553,50 @@ class NotesManager: ObservableObject {
                     }
                 }
             }
+    }
+    
+    func updateNote(_ note: Note) {
+        DispatchQueue.main.async {
+            if let index = self.recommendedNotes.firstIndex(where: {$0.note._id == note._id}) {
+                let user = self.recommendedNotes[index].author
+                let commentsAndAuthors = self.recommendedNotes[index].commentsAndAuthors
+                self.recommendedNotes[index] = NotePackage(note: note, author: user, commentsAndAuthors: commentsAndAuthors)
+            }
+        }
+    }
+    
+    func addCommentToArray(_ commentAndAuthor: CommentAndAuthor) {
+        DispatchQueue.main.async {
+            if let index = self.recommendedNotes.firstIndex(where: { $0.note._id == commentAndAuthor.comment.noteId }) {
+                self.recommendedNotes[index].note.commentCount += 1
+                self.recommendedNotes[index].commentsAndAuthors.append(commentAndAuthor)
+            }
+        }
+    }
+    
+    func addCommentsToArray(_ commentsAndAuthors: [CommentAndAuthor]) {
+        DispatchQueue.main.async {
+            let existingCommentIds = self.recommendedNotes.flatMap { $0.commentsAndAuthors.map { $0.comment._id } }
+            let filteredCommentsAndAuthors = commentsAndAuthors.filter{!existingCommentIds.contains($0.comment._id)}
+
+            for commentAndAuthor in filteredCommentsAndAuthors {
+                if let noteIndex = self.recommendedNotes.firstIndex(where: { $0.note._id == commentAndAuthor.comment.noteId }) {
+                    self.recommendedNotes[noteIndex].commentsAndAuthors.append(commentAndAuthor)
+                 }
+             }
+        }
+    }
+    
+    func updateComment(_ comment: Comment) {
+        DispatchQueue.main.async {
+            if let index = self.recommendedNotes.firstIndex(where: {$0.note._id == comment.noteId}) {
+                var commentsAndAuthors = self.recommendedNotes[index].commentsAndAuthors
+                if let index2 = commentsAndAuthors.firstIndex(where: {$0.comment._id == comment._id}) {
+                    commentsAndAuthors[index2].comment = comment
+                    self.recommendedNotes[index].commentsAndAuthors = commentsAndAuthors
+                }
+                
+            }
+        }
     }
 }

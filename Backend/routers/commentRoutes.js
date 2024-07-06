@@ -4,6 +4,7 @@ const Note = require("../models/note.model")
 const User = require("../models/user.model")
 const NoteComment = require("../models/noteComment.model")
 const CommentLike = require("../models/commentLike.model")
+const mongoose = require("mongoose")
 router.use(requireAuth)
 
 // Add comment to post
@@ -101,6 +102,7 @@ router.post("/unlike", async (req, res) => {
 // Fetch more comments
 router.get("/fetch", async (req, res) => {
     const page = parseInt(req.query.page)
+    const noteId = req.query.noteId
     var limit = parseInt(req.query.limit)
     if (limit > 10) {
         limit = 10
@@ -109,10 +111,11 @@ router.get("/fetch", async (req, res) => {
     try {
         // Fetch page of comments
         const comments = await NoteComment.aggregate()
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .sort({ likeCount: -1 })
-        .exec()
+            .match({ noteId: new mongoose.Types.ObjectId(noteId) })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .sort({ likeCount: -1 })
+            .exec()
 
         // Send author object of each comment back to client
         var commentsAndUsers = []
@@ -132,8 +135,7 @@ router.get("/fetch", async (req, res) => {
                 commentsAndUsers.push({ comment: commentPackage, author: user })
             }
         }
-        console.log(commentsAndUsers)
-        return res.status(200).json(commentsAndUsers)
+        return res.status(200).json(commentsAndUsers.length > 0 ? commentsAndUsers : [])
     } catch (error) {
         console.log(error)
         return res.status(500).json({ message: 'Error fetching comments'})

@@ -9,7 +9,10 @@ import SwiftUI
 
 struct CommentView: View {
     @EnvironmentObject var notesManager: NotesManager
+    @EnvironmentObject var profileInfoManager: ProfileInfoManager
+    
     var commentAndAuthor: CommentAndAuthor
+    var isViewingFromProfileView: Bool
     var body: some View {
         VStack (alignment: .leading, spacing: 15) {
             Divider()
@@ -32,12 +35,24 @@ struct CommentView: View {
             Spacer()
             Button(action: {
                 if commentAndAuthor.comment.hasLiked {
-                    notesManager.unlikeCommet(commentId: commentAndAuthor.comment._id) {
-                        
+                    notesManager.unlikeCommet(commentId: commentAndAuthor.comment._id) { comment in
+                        if let comment = comment {
+                            if isViewingFromProfileView {
+                                profileInfoManager.updateComment(comment)
+                            } else {
+                                notesManager.updateComment(comment)
+                            }
+                        }
                     }
                 } else {
-                    notesManager.likeCommet(commentId: commentAndAuthor.comment._id) {
-                        
+                    notesManager.likeCommet(commentId: commentAndAuthor.comment._id) { comment in
+                        if let comment = comment {
+                            if isViewingFromProfileView {
+                                profileInfoManager.updateComment(comment)
+                            } else {
+                                notesManager.updateComment(comment)
+                            }
+                        }
                     }
                 }
             }) {

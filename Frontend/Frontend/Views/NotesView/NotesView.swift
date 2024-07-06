@@ -12,6 +12,7 @@ struct NotesView: View {
     @State private var showSearchSheet = false
     @State private var showFilterSheet = false
     @State private var height = CGFloat(0)
+    @State private var page = 1
     var body: some View {
         VStack {
             navigationBar
@@ -19,7 +20,7 @@ struct NotesView: View {
                 ScrollView {
                     ScrollViewReader { proxy in
                         ForEach(notesManager.recommendedNotes, id: \.self.note._id) { notePackage in
-                            NotePreview(notePackage: notePackage)
+                            NotePreview(notePackage: notePackage, isViewingFromProfileView: false)
                         }
                         Spacer().id("scroll")
                     }
@@ -31,8 +32,13 @@ struct NotesView: View {
                             }
                     })
                     .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                        if value.y + height < 900 {
-                            notesManager.fetchMoreRecommendedNotes {
+                        if value.y + height < 900 && !notesManager.isFetching && page != -1 {
+                            notesManager.fetchMoreRecommendedNotes(page: page) { reachedEnd in
+                                if reachedEnd {
+                                    page = -1
+                                } else {
+                                    page += 1
+                                }
                                 
                             }
                         }
@@ -48,7 +54,7 @@ struct NotesView: View {
         }
         .onAppear {
             if notesManager.recommendedNotes.count == 0 {
-                notesManager.initialize()
+                notesManager.initialize(page: page)
             }
         }
         .background(Color.gray.opacity(0.1))

@@ -50,7 +50,6 @@ struct ProfileSlidingTabView: View {
                 EmptyView()
             }
         }
-        .padding(.horizontal)
     }
     
     private var overlay: some View {

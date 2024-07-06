@@ -2,6 +2,7 @@ const router = require('express').Router()
 const User = require('../models/user.model')
 const Conversation = require('../models/conversation.model')
 const requireAuth = require('../middleware/requireAuth')
+const Note = require('../models/note.model')
 const { route } = require('./authRoutes')
 
 router.use(requireAuth)
@@ -81,6 +82,34 @@ router.get('/fetchClient', async (req, res) => {
 
     } catch (error) {
         return res.status(400).json({ message: "Unknown server error" })
+    }
+})
+
+// Fetch photos and videos for profile
+router.get('/fetchMedia', async (req, res) => {
+    const page = parseInt(req.query.page)
+    var limit = parseInt(req.query.limit)
+    let userProfileId = req.query.userId
+    if (limit > 10) {
+        limit = 10
+    }
+    try {
+        const media = []
+        const notes = await Note.aggregate()
+            .match({ mediaContent: { $exists: true, $ne: [] } }, { author: userProfileId })
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit)
+
+        for (const note of notes) {
+            const mediaContent = note.mediaContent
+            media.push({...note.mediaContent, noteId: note._id, noteText: note.textContent, noteDate: note.createdAt})
+        }
+        
+        return res.status(200).json(media)
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ message: 'Error fetching media' })
     }
 })
 

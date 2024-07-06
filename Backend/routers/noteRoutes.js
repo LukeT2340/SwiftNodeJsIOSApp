@@ -1,4 +1,5 @@
 const router = require("express").Router()
+const mongoose = require('mongoose')
 const requireAuth = require("../middleware/requireAuth")
 const Note = require("../models/note.model")
 const User = require("../models/user.model")
@@ -108,7 +109,7 @@ router.get('/fetch', async (req, res) => {
         // Add a $match stage if userId is provided
         if (userProfileId && userProfileId !== "") {
             pipeline.push(
-                { $match: { author: userProfileId } }
+                { $match: { author: new mongoose.Types.ObjectId(userProfileId) } }
             )
         }
 
@@ -121,7 +122,6 @@ router.get('/fetch', async (req, res) => {
      
         // Fetch page of notes using the pipeline
         const notes = await Note.aggregate(pipeline).exec()
-
         // Send author object of each note back to client
         var notesAndUsers = []
         for (const note of notes) {
@@ -154,7 +154,6 @@ router.get('/fetch', async (req, res) => {
                 notesAndUsers.push({ note: notePackage, author: user, commentsAndAuthors })
             }
         }
-        console.log(notesAndUsers.length)
         return res.status(200).json(notesAndUsers)
     } catch (error) {
         console.log(error)

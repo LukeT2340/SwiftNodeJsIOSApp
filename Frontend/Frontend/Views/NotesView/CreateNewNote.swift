@@ -36,7 +36,7 @@ struct CreateNewNote: View {
                  let clientUser = authManager.user
                  if let user = clientUser {
                      let notePackage = NotePackage(note: newNote, author: user, commentsAndAuthors: [])
-                     NoteDetailedView(notePackage: notePackage)
+                     NoteDetailedView(notePackage: notePackage, isViewingFromProfileView: false)
                  }
              }
          }
